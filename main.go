@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"main/function"
+	"main/api"
 	"net/http"
 	"os"
 )
@@ -20,16 +21,16 @@ func main() {
 	function.UptimeInit()
 
 	// http request handlers
-	http.HandleFunc("/corona/v1/country/", function.NotImplemented)
-	http.HandleFunc("/corona/v1/diag/", function.NotImplemented)
+	http.HandleFunc("/corona/v1/country/", api.CasesPerCountry)
+	http.HandleFunc("/corona/v1/diag/", api.Diag)
 	http.HandleFunc("/corona/v1/policy/", function.NotImplemented)
 	http.HandleFunc("/corona/v1/notifications/", function.NotImplemented)
 
 	// redirect if missing the trailing slash
-	http.HandleFunc("/corona/v1/country/", function.Redirect)
-	http.HandleFunc("/corona/v1/diag/", function.Redirect)
-	http.HandleFunc("/corona/v1/policy/", function.Redirect)
-	http.HandleFunc("/corona/v1/notifications/", function.Redirect)
+	http.HandleFunc("/corona/v1/country", function.Redirect)
+	http.HandleFunc("/corona/v1/diag", function.Redirect)
+	http.HandleFunc("/corona/v1/policy", function.Redirect)
+	http.HandleFunc("/corona/v1/notifications", function.Redirect)
 
 	fmt.Println("Listening on port " + port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))

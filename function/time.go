@@ -15,3 +15,9 @@ func UptimeInit() {
 	uptimeStart = time.Now()
 }
 
+// Checks if start-date is before end-date
+
+
+// Checks if date is between two boundaries
+
+

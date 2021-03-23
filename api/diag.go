@@ -1,1 +1,83 @@
 package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"main/function"
+	"strings"
+)
+
+/*
+diag represents the diagnostic feedback structure.
+It is of the form:
+{
+	"mmediagroupapi": "<http status code for mmediagroupapi API>",
+   	"covidtrackerapi": "<http status code for covidtrackerapi API>",
+   	"registered": <number of registered webhooks>,
+   	"version": "v1",
+   	"uptime": <time in seconds from the last service restart>
+}
+*/
+type Diagnostic struct {
+	Mmediagroupapi      	string 							`json:"mmediagroupapi"`
+	Covidtrackerapi       	string  						`json:"covidtrackerapi"`
+	Register				int								`json:"registered"`
+	Version 				string 							`json:"version"`
+	Uptime 					string 							`json:"uptime"`
+}
+
+// Handles the diag /corona/v1/diag/ request
+func Diag(w http.ResponseWriter, r *http.Request) {
+
+	// Checks if the method is get, if not sends an error
+	// TODO: turn this into a separate function
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, err := w.Write([]byte("405 Method not allowed, please use GET."))
+		if err != nil {
+			status := http.StatusInternalServerError
+			http.Error(w, "500 Internal Server Error", status)
+			return
+		}
+		return
+	}
+
+	// Checks if the url is correct
+	// TODO: Turn this into a separate function with a parameter expected message
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) != 5 {
+		status := http.StatusBadRequest
+		http.Error(w, "Expecting format .../exchange/{:version_number}/diag , example: /exchange/v1/diag", status)
+		return
+	}
+
+	// Creates the diagnostic information
+	w.Header().Set("Content-Type", "application/json")
+	diagnosticData := &Diagnostic{
+		// TODO: replace the method for this request as it returns a 403 forbidden with head request
+		Mmediagroupapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covid-api.mmediagroup.fr/v1/cases")),
+		Covidtrackerapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covidtrackerapi.bsg.ox.ac.uk/api/v2/stringency/date-range/2021-03-02/2021-03-19")),
+		Register: 0,
+		Version: "v1",
+		Uptime: fmt.Sprintf("%ds", int(function.Uptime().Seconds())),
+	}
+
+	// r.URL.Path
+	//fmt.Println(r.URL.Path)
+
+	// Converts the diagnosticData into json
+	data, _ := json.Marshal(diagnosticData)
+	// Writes the json
+	_, err := w.Write(data)
+	// Error handling with code response
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, err := w.Write([]byte("500 Internal Server Error"))
+		if err != nil {
+			status := http.StatusInternalServerError
+			http.Error(w, "500 Internal Server Error", status)
+			return
+		}
+	}
+}
