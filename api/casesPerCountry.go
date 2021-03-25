@@ -148,7 +148,13 @@ func casesWithoutScope(w http.ResponseWriter, r *http.Request, name string) {
 	outputData.Continent = data.All.Country
 	outputData.Confirmed = data.All.Confirmed
 	// TODO: Fix this, probably doesn't display enough comma values
-	outputData.PopulationPercentage = float64(data.All.Confirmed / data.All.Population)
+	outputData.PopulationPercentage, err =
+		strconv.ParseFloat(fmt.Sprintf("%.2f",float64(data.All.Confirmed) / float64(data.All.Population)),64)
+	if err != nil {
+		function.ErrorHandle(w, "Error in handling float for population percentage",
+			500, "Internal")
+		return
+	}
 	outputData.Scope = "total"
 
 	// Returns the output data to the user
@@ -341,7 +347,13 @@ func casesWithScope(w http.ResponseWriter, r *http.Request, name string, scope s
 	outputData.Country = data.All.Country
 	outputData.Continent = data.All.Continent
 	// TODO: Fix this, probably doesn't display enough comma values
-	outputData.PopulationPercentage = float64(outputData.Confirmed / data.All.Population)
+	outputData.PopulationPercentage, err =
+		strconv.ParseFloat(fmt.Sprintf("%.2f", float64(outputData.Confirmed) / float64(data.All.Population)), 64)
+	if err != nil {
+		function.ErrorHandle(w, "Error in handling float for population percentage",
+			500, "Internal")
+		return
+	}
 	outputData.Scope = scope
 
 	// Returns the output data to the user
