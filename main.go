@@ -23,7 +23,7 @@ func main() {
 	// http request handlers
 	http.HandleFunc("/corona/v1/country/", api.CasesPerCountry)
 	http.HandleFunc("/corona/v1/diag/", api.Diag)
-	http.HandleFunc("/corona/v1/policy/", function.NotImplemented)
+	http.HandleFunc("/corona/v1/policy/", api.PolicyStringency)
 	http.HandleFunc("/corona/v1/notifications/", function.NotImplemented)
 
 	// redirect if missing the trailing slash
