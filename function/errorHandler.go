@@ -7,7 +7,7 @@ import (
 
 // Handles errors in the program by sending proper http responses and messages
 func ErrorHandle(w http.ResponseWriter, errorMsg string, errorCode int, errorType string) {
-	fmt.Println("Mistakes were made")
+	//fmt.Println("Mistakes were made")
 	// Set the content type to json
 	w.Header().Set("Content-Type", "application/json")
 	// Writes the error code

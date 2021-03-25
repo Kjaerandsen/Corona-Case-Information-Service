@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"main/function"
+	"net/http"
 	"strings"
 )
 
@@ -33,22 +33,15 @@ func Diag(w http.ResponseWriter, r *http.Request) {
 	// Checks if the method is get, if not sends an error
 	// TODO: turn this into a separate function
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		_, err := w.Write([]byte("405 Method not allowed, please use GET."))
-		if err != nil {
-			status := http.StatusInternalServerError
-			http.Error(w, "500 Internal Server Error", status)
-			return
-		}
-		return
+		function.ErrorHandle(w,
+			"Method not allowed, only get is allowed on this resource", 405, "Method")
 	}
 
 	// Checks if the url is correct
 	// TODO: Turn this into a separate function with a parameter expected message
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) != 5 {
-		status := http.StatusBadRequest
-		http.Error(w, "Expecting format .../exchange/{:version_number}/diag , example: /exchange/v1/diag", status)
+		function.ErrorHandle(w, "500 Internal Server Error", 500, "Internal")
 		return
 	}
 
@@ -63,21 +56,12 @@ func Diag(w http.ResponseWriter, r *http.Request) {
 		Uptime: fmt.Sprintf("%ds", int(function.Uptime().Seconds())),
 	}
 
-	// r.URL.Path
-	//fmt.Println(r.URL.Path)
-
 	// Converts the diagnosticData into json
 	data, _ := json.Marshal(diagnosticData)
 	// Writes the json
 	_, err := w.Write(data)
 	// Error handling with code response
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, err := w.Write([]byte("500 Internal Server Error"))
-		if err != nil {
-			status := http.StatusInternalServerError
-			http.Error(w, "500 Internal Server Error", status)
-			return
-		}
+		function.ErrorHandle(w, "500 Internal Server Error", 500, "Internal")
 	}
 }

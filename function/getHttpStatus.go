@@ -12,7 +12,7 @@ func GetHttpStatus(webUrl string) int {
 	if err != nil {
 		// TODO: Look over error handling
 		log.Fatal(err)
-		return 500
+		return 503
 	}
 	return resp.StatusCode
 }

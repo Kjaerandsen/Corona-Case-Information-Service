@@ -1,7 +1,6 @@
 package function
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -17,8 +16,6 @@ func TextSplitter(text string, length int, seperator string) (bool, []string){
 	*/
 	parts := strings.Split(text, seperator)
 
-	fmt.Println(len(parts))
-
 	if len(parts) != length {
 		return false, parts
 	}
@@ -26,20 +23,8 @@ func TextSplitter(text string, length int, seperator string) (bool, []string){
 	return true, parts
 }
 
-/*
-	Checks if the input dates are ordered, uses the data from the textsplitter function
- */
-func DateCheck(dateparts string) bool{
-	// Check if the start date is before or equal to the end date
-	if dateparts[0] > dateparts[3] {
-		return false
-	} else if dateparts[0] == dateparts[3] {
-		if dateparts[1] > dateparts[4] {
-			return false
-		} else if dateparts[1] == dateparts[4] && dateparts[2] >= dateparts[5] {
-			return false
-		}
-	}
+// Check if the characters of a string contains only numbers (check if string is an integer)
+// TODO: THIS?
 
-	return true
-}
+// Make the first char of a string uppercase
+// TODO: THIS?
