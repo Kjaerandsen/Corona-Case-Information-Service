@@ -57,6 +57,13 @@ func PolicyStringency(w http.ResponseWriter, r *http.Request) {
 	// ErrorResponse bool for errors
 	var errorResponse bool
 
+	// Checks if the request method is valid (only accepts get)
+	if r.Method != http.MethodGet {
+		function.ErrorHandle(w, "Method not supported, only get method is supported for this endpoint",
+			400, "Bad request")
+		return
+	}
+
 	// Checks if the request is valid
 	errorResponse, parts = function.TextSplitter(r.URL.Path, 5, "/")
 	if !errorResponse {
@@ -215,14 +222,6 @@ func stringencyRequest(w http.ResponseWriter, r *http.Request, date string, alph
 		return data, false
 	}
 
-	/*
-	if data.Data.Message != "" {
-		//function.ErrorHandle(w, "Received no data from external api", 500, "Request")
-		// Check in the function itself
-		return data, false
-	}
-	 */
-
 	// If no errors return the data received and a true bool as in executed successfully
 	return data, true
 }
@@ -293,8 +292,6 @@ func stringencyWithScope(w http.ResponseWriter, r *http.Request, name string, sc
 		if outputTrend == 0 {
 			outputTrend = data.Data.Stringency
 		}
-
-		fmt.Println(output.Stringency, outputTrend, output.Stringency-outputTrend)
 
 		output.Trend = output.Stringency - outputTrend
 	}

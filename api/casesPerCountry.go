@@ -53,6 +53,13 @@ func CasesPerCountry(w http.ResponseWriter, r *http.Request) {
 	// ErrorResponse bool for errors
 	var errorResponse bool
 
+	// Checks if the request method is valid (only accepts get)
+	if r.Method != http.MethodGet {
+		function.ErrorHandle(w, "Method not supported, only get method is supported for this endpoint",
+			400, "Bad request")
+		return
+	}
+
 	// Checks if the request is valid
 	errorResponse, parts = function.TextSplitter(r.URL.Path, 5, "/")
 	if !errorResponse {
