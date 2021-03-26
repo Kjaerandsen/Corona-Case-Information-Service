@@ -123,7 +123,7 @@ func casesWithoutScope(w http.ResponseWriter, r *http.Request, name string) {
 		return
 	}
 
-	// Print output
+	// Read the data
 	output, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		function.ErrorHandle(w, "Error in parsing json from external api", 500, "Parsing")

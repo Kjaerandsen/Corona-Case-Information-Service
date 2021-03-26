@@ -1,6 +1,7 @@
 package function
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -61,4 +62,40 @@ func DateConsecutive(date1 time.Time, date2 time.Time) bool {
 		return false
 	}
 	return true
+}
+
+// Returns the date -7, -10 and -13 days as a string array for the stringency endpoint
+func DateToday() [3]string {
+	var intMonth int
+	var output [3]string
+
+	// Set the date to the current date
+	var date = time.Now()
+
+	// Set the date to seven days prior the the current date
+	date = date.AddDate(0,0,-7)
+
+	// Fill in the dates starting from a seven days ago, then 10 then 13.
+	for i:=0; i<3; i++ {
+		year, month, day := date.Date()
+
+		intMonth = int(month)
+
+		if int(month) < 10 {
+			output[i] = fmt.Sprintf("%v-0%v-", year, intMonth)
+		} else {
+			output[i] = fmt.Sprintf("%v-%v-", year, intMonth)
+		}
+
+		if day < 10 {
+			output[i] = fmt.Sprintf("%s0%v", output[i], day)
+		} else {
+			output[i] = fmt.Sprintf("%s%v", output[i], day)
+		}
+
+		// Subtract three days, as in fill in the date three days prior in the next loop
+		date = date.AddDate(0,0,-3)
+	}
+
+	return output
 }
