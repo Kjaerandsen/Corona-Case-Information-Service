@@ -99,7 +99,8 @@ Body (Example):
 ```
 
 Notes:
-* If no date range is provided, the `scope` field should read `"total"`. In this case, the latest `stringency` information should be reported, and `trend` set to 0. 
+* If no date range is provided, the `scope` field reads `"total"`. In this case, the latest `stringency` information is reported, and `trend` set to 0.
+* If no date range is provided the program checks data from 7, 10 and 13 days ago if necessary. Reports an error if none of those dates have datapoints.
 * If a date range is specified in which either stringency information for begin or end date is not available, report -1 for `stringency`.
 * More generally, where information is missing (either stringency information to display, or data for trend calculation), report -1 for `stringency`, and 0 for `trend`.
 

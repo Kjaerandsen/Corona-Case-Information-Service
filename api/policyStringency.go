@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"main/function"
 	"net/http"
+	"strconv"
 )
 
 // corona/v1/stringency endpoint
@@ -24,7 +25,7 @@ type OutputStrData struct {
 	Trend				float64 `json:"trend"`
 }
 
-// For the input data of the request to the "covidtrackerapi"
+// For the input data of the request to the "covidtrackerapi", potentially used for caching data later
 /*
 type StringencyData struct {
 	// Might need to chance countries type
@@ -147,8 +148,6 @@ func countryCode(w http.ResponseWriter, r *http.Request, name string) (CountryIn
 		return data, false
 	}
 
-	fmt.Println(output)
-
 	// JSON into struct
 	err = json.Unmarshal(output, &data)
 	if err != nil {
@@ -209,8 +208,6 @@ func stringencyRequest(w http.ResponseWriter, r *http.Request, date string, alph
 		return data, false
 	}
 
-	fmt.Println(output)
-
 	// JSON into struct
 	err = json.Unmarshal(output, &data)
 	if err != nil {
@@ -218,10 +215,13 @@ func stringencyRequest(w http.ResponseWriter, r *http.Request, date string, alph
 		return data, false
 	}
 
+	/*
 	if data.Data.Message != "" {
 		//function.ErrorHandle(w, "Received no data from external api", 500, "Request")
+		// Check in the function itself
 		return data, false
 	}
+	 */
 
 	// If no errors return the data received and a true bool as in executed successfully
 	return data, true
@@ -257,35 +257,73 @@ func stringencyWithoutScope(w http.ResponseWriter, r *http.Request, name string,
 func stringencyWithScope(w http.ResponseWriter, r *http.Request, name string, scope string,
 	scopeParts []string, alpha string) {
 	var output OutputStrData
+	var outputTrend float64
+	var errorCheck error
 
 	// Perform the api request for the start date
-	data, err := stringencyRequest(w, r, "2020-03-04","NOR")
+	data, err := stringencyRequest(w, r, fmt.Sprintf("%s-%s-%s", scopeParts[0], scopeParts[1], scopeParts[2]),
+		alpha)
 	if !err {
-
+		function.ErrorHandle(w, "Internal Server Error when handling dataset", 500, "Internal")
+		return
 	}
 
 	// Perform the api call for the end date
 	// Perform the api request for the start date
-	data2, err := stringencyRequest(w, r, "2020-03-04","NOR")
+	data2, err := stringencyRequest(w, r, fmt.Sprintf("%s-%s-%s", scopeParts[3], scopeParts[4], scopeParts[5]),
+		alpha)
 	if !err {
-
+		function.ErrorHandle(w, "Internal Server Error when handling dataset", 500, "Internal")
+		return
 	}
 
+	// If one of the dates contain no data default to -1 as stringency value and 0 as trend value
+	if data.Data.Message != "" || data2.Data.Message != "" {
+		output.Stringency = -1
+		output.Trend = 0
+	} else {
+		// If StringencyActual is empty default to Stringency
+		output.Stringency = data2.Data.StringencyActual
+		if output.Stringency == 0 {
+			output.Stringency = data2.Data.Stringency
+		}
 
+		// If StringencyActual is empty default to Stringency
+		outputTrend = data.Data.StringencyActual
+		if outputTrend == 0 {
+			outputTrend = data.Data.Stringency
+		}
 
-	fmt.Println(data, data2)
+		fmt.Println(output.Stringency, outputTrend, output.Stringency-outputTrend)
+
+		output.Trend = output.Stringency - outputTrend
+	}
+
+	// Limit the decimals in the trend float
+	output.Trend, errorCheck = strconv.ParseFloat(fmt.Sprintf("%.2f", output.Trend), 64)
+	if errorCheck != nil {
+		function.ErrorHandle(w, "Error in handling float for trend data",
+			500, "Internal")
+		return
+	}
+
+	output.Scope= scope
+	output.Country = name
 
 	// Returns the output data to the user
 	returnStringencyData(w, output)
 }
 
 // Loops through the dates and checks for valid data, returns valid data if found, else empty data and a false bool
-func stringencyDataRequest(w http.ResponseWriter, r *http.Request, dates [3]string, name string) (StringencyData, bool) {
+func stringencyDataRequest(w http.ResponseWriter, r *http.Request, dates [3]string, alpha string) (StringencyData, bool) {
 	var data StringencyData
 
 	for i:=0; i<3; i++ {
-		data, err := stringencyRequest(w, r, dates[i], name)
-		if err {
+		data, err := stringencyRequest(w, r, dates[i], alpha)
+
+		// If data.Data.Message is empty that means that the datapoint exists for the date
+		// If the datapoint exists and there is no error return the data and go on
+		if data.Data.Message == "" && err {
 			return data, true
 		}
 	}
