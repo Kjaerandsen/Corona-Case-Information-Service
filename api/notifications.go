@@ -10,6 +10,7 @@ import (
 	"main/function"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // Firebase context and client used by Firestore functions throughout the program.
@@ -38,7 +39,7 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// If the data after the slash is empty run the "View all registered webhooks" command
 		if parts[4] == "" {
-			webhookViewAll(w, r)
+			webhookViewAll(w)
 			return
 		// Else view the specified webhook
 		} else {
@@ -51,7 +52,7 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 		return
 	case http.MethodDelete:
 		// Handle the delete request
-		webhookDelete(w, r, parts[4])
+		webhookDelete(w, parts[4])
 		return
 	default:
 		function.ErrorHandle(w, "Method not supported, only the " +
@@ -60,8 +61,8 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Sets the WebhookCount var, runs at startup
-func RetrieveWebhookCount() {
+// Sets the WebhookCount var, and runs the webhook function for the registered webhooks at start
+func WebhookStart() {
 	var counter int
 
 	// Retrieve the data from firestore
@@ -77,6 +78,19 @@ func RetrieveWebhookCount() {
 		counter++
 	}
 	WebhookCount = counter
+}
+
+// Checks a webhooks datapoint and returns a value if changed / on timeout
+func webhookCheck(timeout int, trigger string, information string, url string) {
+	// Perform initial request to hold the data
+
+	// While loop, check each update if the webhook still exists
+	// else exit
+
+	// Sleep for the timeout amount of seconds
+	time.Sleep(time.Duration(timeout) * time.Second)
+
+	// Perform the api call, if the value is changed return it
 }
 
 // Creates a webhook
@@ -109,7 +123,7 @@ func webhookCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // Views all webhooks
-func webhookViewAll(w http.ResponseWriter, r *http.Request) {
+func webhookViewAll(w http.ResponseWriter) {
 	var webhooks []WebhookData
 	var outputString string
 
@@ -196,7 +210,7 @@ func webhookViewSingle(w http.ResponseWriter, name string) {
 }
 
 // Deletes the specified webhook
-func webhookDelete(w http.ResponseWriter, r *http.Request, name string) {
+func webhookDelete(w http.ResponseWriter, name string) {
 	_, err := Client.Collection(Collection).Doc(name).Delete(Ctx)
 	if err != nil {
 		http.Error(w, "Deletion of " + name + " failed.", http.StatusInternalServerError)

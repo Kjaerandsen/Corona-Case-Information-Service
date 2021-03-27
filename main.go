@@ -40,7 +40,8 @@ func main() {
 	}
 	defer api.Client.Close()
 
-	api.RetrieveWebhookCount()
+	// Sets the global variable for the amount of registered webhooks
+	api.WebhookStart()
 
 	// http request handlers
 	http.HandleFunc("/corona/v1/country/", api.CasesPerCountry)
