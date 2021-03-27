@@ -1,15 +1,23 @@
 package api
 
 import (
+	"cloud.google.com/go/firestore" // Firestore-specific support
+	"context"                       // State handling across API boundaries; part of native GoLang API
 	"encoding/json"
 	"fmt"
+	"google.golang.org/api/iterator"
+	"log"
 	"main/function"
 	"net/http"
 	"strconv"
 )
 
-// Webhook data placeholder
-var WebhooksMap = make(map[string]WebhookData)
+// Firebase context and client used by Firestore functions throughout the program.
+var Ctx context.Context
+var Client *firestore.Client
+// Collection name in Firestore
+var Collection = "webhooks"
+var WebhookCount int
 
 // Main function that calls other functions
 func Notifications(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +47,7 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 		}
 	case http.MethodPost:
 		// Handle the post request
-		webhookCreate(w, r, parts[4])
+		webhookCreate(w, r)
 		return
 	case http.MethodDelete:
 		// Handle the delete request
@@ -52,7 +60,27 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func webhookCreate(w http.ResponseWriter, r *http.Request, name string) {
+// Sets the WebhookCount var, runs at startup
+func RetrieveWebhookCount() {
+	var counter int
+
+	// Retrieve the data from firestore
+	iter := Client.Collection(Collection).Documents(Ctx) // Loop through all entries in collection "webhooks"
+	for {
+		_, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Failed to iterate: %v", err)
+		}
+		counter++
+	}
+	WebhookCount = counter
+}
+
+// Creates a webhook
+func webhookCreate(w http.ResponseWriter, r *http.Request) {
 	// Expects incoming body in terms of WebhookRegistration struct
 	webhook := WebhookData{}
 	err := json.NewDecoder(r.Body).Decode(&webhook)
@@ -60,62 +88,119 @@ func webhookCreate(w http.ResponseWriter, r *http.Request, name string) {
 		function.ErrorHandle(w, "Bad request, see manual for specification of post",
 			400, "Request")
 	}
-	// Check the data and add an id
-	webhook.Id = fmt.Sprintf("%v", len(WebhooksMap))
 
-	fmt.Println(webhook)
+	id, _, err := Client.Collection("webhooks").Add(Ctx,
+		map[string]interface{}{
+		"url": webhook.Url,
+		"timeout": webhook.Timeout,
+		"field": webhook.Information,
+		"country": webhook.Country,
+		"trigger": webhook.Trigger,
+		})
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Error when adding message ", http.StatusBadRequest)
+		return
+	}
 
-	// TODO: check if already exists first
-	WebhooksMap[webhook.Id] = webhook
-
-	fmt.Println("Webhook " + webhook.Url + " has been registered.")
-	//http.Error(w, strconv.Itoa(len(Webhooks)-1), http.StatusCreated)
-	http.Error(w, strconv.Itoa(len(WebhooksMap)-1), http.StatusCreated)
+	WebhookCount ++
+	fmt.Println("Webhook with id: " + id.ID + " has been registered.")
+	http.Error(w, id.ID, http.StatusCreated)
 }
 
 // Views all webhooks
 func webhookViewAll(w http.ResponseWriter, r *http.Request) {
-	// Return all webhooks
+	var webhooks []WebhookData
+	var outputString string
+
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(WebhooksMap)
+
+	fmt.Println(Client.Collection(Collection).ID)
+
+	// Retrieve the data from firestore
+	var counter int
+
+	_ , err := fmt.Fprintf(w, "[")
 	if err != nil {
-		function.ErrorHandle(w, "Internal server error",
-			500, "Internal")
+		http.Error(w, "Error while writing response body.", http.StatusInternalServerError)
 	}
+
+	iter := Client.Collection(Collection).Documents(Ctx) // Loop through all entries in collection "webhooks"
+	for {
+		outputString = ""
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatalf("Failed to iterate: %v", err)
+		}
+		m := doc.Data() // A message map with string keys. Each key is a unique id
+
+		outputString = fmt.Sprintf(`{"id":"%v","url":"%s","timeout":%v,`, doc.Ref.ID, m["url"], m["timeout"])
+		outputString = fmt.Sprintf(`%s"information":"%s","country":"%s","trigger":"%s"},`,
+			outputString,
+			m["field"],
+			m["country"],
+			m["trigger"])
+
+		_ , err = fmt.Fprintf(w, "%s", outputString)
+		if err != nil {
+			http.Error(w, "Error while writing response body.", http.StatusInternalServerError)
+		}
+		counter++
+	}
+
+	WebhookCount = counter
+	_ , err = fmt.Fprintf(w, "]")
+	if err != nil {
+		http.Error(w, "Error while writing response body.", http.StatusInternalServerError)
+	}
+
+	// Return the struct array
+	fmt.Println(webhooks)
 }
 
 // Views the specified webhook if it exists
 func webhookViewSingle(w http.ResponseWriter, name string) {
+	var outputDataStruct WebhookData
 
-	// If the map key exists return the value
-	output, exists := WebhooksMap[name]
-	if !exists{
-		// If the id doesn't exist in the database return an error
-		function.ErrorHandle(w, "There is no webhook with the specified id registered",
-			400, "Bad request")
+	data, err := Client.Collection(Collection).Doc(name).Get(Ctx)
+	if err != nil {
+		function.ErrorHandle(w, "No webhook with the specified id found", 400, "Bad request")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(output)
+
+	outputData := data.Data()
+
+	outputDataStruct.Country = fmt.Sprintf("%s", outputData["country"])
+	outputDataStruct.Information = fmt.Sprintf("%s", outputData["field"])
+	outputDataStruct.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", outputData["timeout"]))
 	if err != nil {
-		function.ErrorHandle(w, "Internal server error",
-			500, "Internal")
+		function.ErrorHandle(w, "Internal server error", 500, "Parsing")
+		return
 	}
+	outputDataStruct.Trigger = fmt.Sprintf("%s", outputData["trigger"])
+	outputDataStruct.Url = fmt.Sprintf("%s", outputData["url"])
+	outputDataStruct.Id = name
 
+	// Exporting the data
+	w.Header().Set("Content-Type", "application/json")
+	// Converts the diagnosticData into json
+	outData, _ := json.Marshal(outputDataStruct)
+	// Writes the json
+	_, err = w.Write(outData)
+	if err != nil {
+		function.ErrorHandle(w, "Internal server error", 500, "Response")
+	}
 }
-
 
 // Deletes the specified webhook
 func webhookDelete(w http.ResponseWriter, r *http.Request, name string) {
-	// Check if the key exists
-	_, exists := WebhooksMap[name]
-	if !exists{
-		// If the id doesn't exist in the database return an error
-		function.ErrorHandle(w, "There is no webhook with the specified id registered",
-			400, "Bad request")
-		return
+	_, err := Client.Collection(Collection).Doc(name).Delete(Ctx)
+	if err != nil {
+		http.Error(w, "Deletion of " + name + " failed.", http.StatusInternalServerError)
 	}
-	// Remove it from the database
-	delete(WebhooksMap, name)
-	http.Error(w, "Webhook: " + name + " deleted", http.StatusOK)
+	WebhookCount--
+	http.Error(w, "Deletion of " + name + " successful.", http.StatusNoContent)
 }

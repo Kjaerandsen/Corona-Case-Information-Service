@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context" // State handling across API boundaries; part of native GoLang API
+	firebase "firebase.google.com/go"
 	"fmt"
+	"google.golang.org/api/option"
 	"log"
 	"main/api" // /v1?
 	"main/function"
@@ -19,6 +22,25 @@ func main() {
 
 	// Sets the startvalue for the uptime resource in diag
 	function.UptimeInit()
+
+	// Connects to the firestore database
+	api.Ctx = context.Background()
+	sa := option.WithCredentialsFile("./service-account.json")
+	app, err := firebase.NewApp(api.Ctx, nil, sa)
+	if err != nil {
+		fmt.Println(err)
+		log.Fatalln(err)
+	}
+
+	api.Client, err = app.Firestore(api.Ctx)
+
+	if err != nil {
+		fmt.Println(err)
+		log.Fatalln(err)
+	}
+	defer api.Client.Close()
+
+	api.RetrieveWebhookCount()
 
 	// http request handlers
 	http.HandleFunc("/corona/v1/country/", api.CasesPerCountry)

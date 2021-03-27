@@ -1,7 +1,5 @@
 package api
 
-// Country endpoint
-
 // Contains the input data from the mmg api, used twice for requests with a date range
 // Once for data with cases and one for data with recovered statistics
 type InputDataWithScope struct {
@@ -34,9 +32,8 @@ type OutputData struct {
 	PopulationPercentage float64 				`json:"population_percentage"`
 }
 
-// Stringency endpoint
-
 // For the country name and alpha 3 code retrieved from the restcountries api
+// Used in the stringency endpoint
 type CountryInfo []struct {
 	Name       string `json:"name"`
 	Alpha3Code string `json:"alpha3Code"`
@@ -90,10 +87,8 @@ type Diagnostic struct {
 	Covidtrackerapi       	string  	`json:"covidtrackerapi"`
 	Register				int			`json:"registered"`
 	Version 				string 		`json:"version"`
-	Uptime 					string 		`json:"uptime"`
+	Uptime 					int 		`json:"uptime"`
 }
-
-// Notifications endpoint
 
 /*
 For the webhook data, id is created server side, rest is sent clientside as a post request
@@ -111,7 +106,7 @@ type WebhookData struct {
 	Id			string	`json:"id"`
 	Url			string	`json:"url"`
 	Timeout		int		`json:"timeout"`
-	Field		string	`json:"field"`
+	Information	string	`json:"information"`
 	Country		string	`json:"country"`
 	Trigger		string	`json:"trigger"`
 }

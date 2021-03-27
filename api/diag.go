@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"main/function"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 // Handles the diag /corona/v1/diag/ request
 func Diag(w http.ResponseWriter, r *http.Request) {
+	var err error
 
 	// Checks if the method is get, if not sends an error
 	// TODO: turn this into a separate function
@@ -29,18 +31,23 @@ func Diag(w http.ResponseWriter, r *http.Request) {
 	// Creates the diagnostic information
 	w.Header().Set("Content-Type", "application/json")
 	diagnosticData := &Diagnostic{
-		// TODO: replace the method for this request as it returns a 403 forbidden with head request
 		Mmediagroupapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covid-api.mmediagroup.fr/v1/cases")),
 		Covidtrackerapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covidtrackerapi.bsg.ox.ac.uk/api/v2/stringency/date-range/2021-03-02/2021-03-19")),
-		Register: len(Webhooks),
+		Register: WebhookCount,
 		Version: "v1",
-		Uptime: fmt.Sprintf("%ds", int(function.Uptime().Seconds())),
+		Uptime: 0,
+	}
+
+	// Sets the uptime
+	diagnosticData.Uptime, err = strconv.Atoi(fmt.Sprintf("%d", int(function.Uptime().Seconds())))
+	if err != nil {
+		function.ErrorHandle(w, "500 Internal Server Error", 500, "Internal")
 	}
 
 	// Converts the diagnosticData into json
 	data, _ := json.Marshal(diagnosticData)
 	// Writes the json
-	_, err := w.Write(data)
+	_, err = w.Write(data)
 	// Error handling with code response
 	if err != nil {
 		function.ErrorHandle(w, "500 Internal Server Error", 500, "Internal")
