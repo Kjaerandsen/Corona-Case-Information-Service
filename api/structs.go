@@ -78,17 +78,40 @@ type StringencyData struct {
 diag represents the diagnostic feedback structure.
 It is of the form:
 {
-	"mmediagroupapi": "<http status code for mmediagroupapi API>",
-   	"covidtrackerapi": "<http status code for covidtrackerapi API>",
-   	"registered": <number of registered webhooks>,
-   	"version": "v1",
-   	"uptime": <time in seconds from the last service restart>
+	"mmediagroupapi":"<http status code for mmediagroupapi API>",
+   	"covidtrackerapi":"<http status code for covidtrackerapi API>",
+   	"registered":<number of registered webhooks>,
+   	"version":"v1",
+   	"uptime":<time in seconds from the last service restart>
 }
 */
 type Diagnostic struct {
-	Mmediagroupapi      	string 							`json:"mmediagroupapi"`
-	Covidtrackerapi       	string  						`json:"covidtrackerapi"`
-	Register				int								`json:"registered"`
-	Version 				string 							`json:"version"`
-	Uptime 					string 							`json:"uptime"`
+	Mmediagroupapi      	string 		`json:"mmediagroupapi"`
+	Covidtrackerapi       	string  	`json:"covidtrackerapi"`
+	Register				int			`json:"registered"`
+	Version 				string 		`json:"version"`
+	Uptime 					string 		`json:"uptime"`
+}
+
+// Notifications endpoint
+
+/*
+For the webhook data, id is created server side, rest is sent clientside as a post request
+It is of the form:
+{
+	"Id":"<unique identifier>"
+	"Url":"<url to invoke on timeout (&& change)>"
+	"Timeout":"<time between updates>"
+	"Field":"<recovered or confirmed>"
+	"Country":"<country name>"
+	"Trigger":"<ON_CHANGE or ON_TIMEOUT>" either both change and timeout, or just timeout required
+}
+*/
+type WebhookData struct {
+	Id			string	`json:"id"`
+	Url			string	`json:"url"`
+	Timeout		int		`json:"timeout"`
+	Field		string	`json:"field"`
+	Country		string	`json:"country"`
+	Trigger		string	`json:"trigger"`
 }

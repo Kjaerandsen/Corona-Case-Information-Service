@@ -32,7 +32,7 @@ func Diag(w http.ResponseWriter, r *http.Request) {
 		// TODO: replace the method for this request as it returns a 403 forbidden with head request
 		Mmediagroupapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covid-api.mmediagroup.fr/v1/cases")),
 		Covidtrackerapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covidtrackerapi.bsg.ox.ac.uk/api/v2/stringency/date-range/2021-03-02/2021-03-19")),
-		Register: 0,
+		Register: len(Webhooks),
 		Version: "v1",
 		Uptime: fmt.Sprintf("%ds", int(function.Uptime().Seconds())),
 	}

@@ -50,6 +50,7 @@ Example request: ```/corona/v1/country/Norway?scope=2020-12-01-2021-01-31```
 * Status code: 200 if everything is OK, appropriate error code otherwise.
 
 Body (Example):
+
 ```
 {
     "country": "Norway",
@@ -73,15 +74,18 @@ Where the `stringency_actual` field is not filled, the api falls back to the `st
 
 ### - Request
 
-```
+
 Method: GET
+
+```
 Path: /corona/v1/policy/{:country_name}{?scope=begin_date-end_date}
+```
 
-```{:country_name}``` refers to the English name for the country as supported by https://mmediagroup.fr/covid-19.
+`{:country_name}` refers to the English name for the country as supported by https://mmediagroup.fr/covid-19.
 
-```{?scope=begin_date-end_date}``` indicates the first date for which the policy stringency is considered; the end date is the last one. 
+`{?scope=begin_date-end_date}` indicates the first date for which the policy stringency is considered; the end date is the last one. 
 
-Example request: ```/corona/v1/policy/France?scope=2020-12-01-2021-01-31```
+Example request: `/corona/v1/policy/France?scope=2020-12-01-2021-01-31`
 
 ### - Response
 
@@ -89,6 +93,7 @@ Example request: ```/corona/v1/policy/France?scope=2020-12-01-2021-01-31```
 * Status code: 200 if everything is OK, appropriate error code otherwise.
 
 Body (Example):
+
 
 ```
 {
@@ -272,4 +277,7 @@ Uptime code is based on code from
 https://stackoverflow.com/questions/37992660/golang-retrieve-application-uptime
 
 The url request is based on code from RESTclient found at
-"https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/blob/master/RESTclient/cmd/main.go"
+https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/blob/master/RESTclient/cmd/main.go
+
+Webhook functions are based on code from WebhooksDemo found at:
+https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/tree/master/webhooksDemo
