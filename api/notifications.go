@@ -45,6 +45,10 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 		webhookDelete(w, r, parts[4])
 		return
 	}
+
+	function.ErrorHandle(w, "Method not supported, only the " +
+		"get, delete and put methods is supported for this endpoint",
+		400, "Bad request")
 }
 
 // Views all webhooks

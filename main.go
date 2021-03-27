@@ -33,5 +33,10 @@ func main() {
 	http.HandleFunc("/corona/v1/notifications", function.Redirect)
 
 	fmt.Println("Listening on port " + port)
+	fmt.Println("Endpoints available: ")
+	fmt.Println("/corona/v1/country")
+	fmt.Println("/corona/v1/policy")
+	fmt.Println("/corona/v1/diag")
+	fmt.Println("/corona/v1/notifications")
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

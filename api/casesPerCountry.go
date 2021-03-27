@@ -13,38 +13,6 @@ import (
 // TODO: Rename this file? move api to /v1/ ?
 // corona/v1/country/ endpoint
 
-// Contains the input data from the mmg api, used twice for requests with a date range
-// Once for data with cases and one for data with recovered statistics
-type InputDataWithScope struct {
-	All struct {
-		Country    		string                  `json:"country"`
-		Population 		int                     `json:"population"`
-		Continent 		string                  `json:"continent"`
-		Dates      		map[string]interface{}  `json:"dates"`
-	}
-}
-
-// For the input data of the request without a defined scope
-type InputDataWithoutScope struct {
-	All struct {
-		Confirmed		int					   	`json:"confirmed"`
-		Recovered		int					   	`json:"recovered"`
-		Country			string     				`json:"country"`
-		Continent		string					`json:"continent"`
-		Population		int						`json:"population"`
-	}
-}
-
-// For the final output
-type OutputData struct {
-	Country              string  				`json:"country"`
-	Continent            string  				`json:"continent"`
-	Scope                string  				`json:"scope"`
-	Confirmed            int     				`json:"confirmed"`
-	Recovered            int    				`json:"recovered"`
-	PopulationPercentage float64 				`json:"population_percentage"`
-}
-
 // Main function that calls other functions
 func CasesPerCountry(w http.ResponseWriter, r *http.Request) {
 	// Parts array for the text split parts

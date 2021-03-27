@@ -89,6 +89,7 @@ Example request: ```/corona/v1/policy/France?scope=2020-12-01-2021-01-31```
 * Status code: 200 if everything is OK, appropriate error code otherwise.
 
 Body (Example):
+
 ```
 {
     "country": "France",
@@ -121,6 +122,7 @@ Path: diag/
 * Status code: 200 if everything is OK, appropriate error code otherwise. 
 
 Body:
+
 ```
 {
    "mmediagroupapi": "<http status code for mmediagroupapi API>",
@@ -155,6 +157,7 @@ The body contains
  * the country for which the trigger applies
 
 Body (Example):
+
 ```
 {
    "url": "https://localhost:8080/client/",
@@ -175,6 +178,7 @@ The response contains the ID for the registration that can be used to see detail
 * Status code: Choose an appropriate status code
 
 Body (Example):
+
 ```
 OIdksUDwveiwe
 ```
@@ -210,6 +214,7 @@ Path: /corona/v1/notifications/{id}
 The response is similar to the POST request body, but further includes the ID assigned by the server upon adding the webhook.
 
 Body (Example):
+
 ```
 {
    "id": "OIdksUDwveiwe",
@@ -235,6 +240,7 @@ Path: /corona/v1/notifications/
 The response is a collection of registered webhooks as specified in the POST body, alongside the server-defined ID.
 
 Body (Example):
+
 ```
 [{
    "id": "OIdksUDwveiwe",

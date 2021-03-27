@@ -11,43 +11,6 @@ import (
 
 // corona/v1/stringency endpoint
 
-// For the country name and alpha 3 code retrieved from the restcountries api
-type CountryInfo []struct {
-	Name       string `json:"name"`
-	Alpha3Code string `json:"alpha3Code"`
-}
-
-// For the final output
-type OutputStrData struct {
-	Country 			string  `json:"country"`
-	Scope               string  `json:"scope"`
-	Stringency			float64 `json:"stringency"`
-	Trend				float64 `json:"trend"`
-}
-
-// For the input data of the request to the "covidtrackerapi", potentially used for caching data later
-/*
-type StringencyData struct {
-	// Might need to chance countries type
-	// Use for checking the if alpha 3 code is reported by the api before doing anything else
-	// Potentially just use the Data values
-	Countries			[]string 				`json:"countries"`
-	Data				map[string]interface{}  `json:"data"`
-}
- */
-
-type StringencyData struct {
-	Data struct {
-		DateValue        string  `json:"date_value"`
-		CountryCode      string  `json:"country_code"`
-		Confirmed        int     `json:"confirmed"`
-		Deaths           int     `json:"deaths"`
-		StringencyActual float64 `json:"stringency_actual"`
-		Stringency       float64 `json:"stringency"`
-		Message			 string	 `json:"msg"`
-	} `json:"stringencyData"`
-}
-
 // Handle the request
 func PolicyStringency(w http.ResponseWriter, r *http.Request) {
 

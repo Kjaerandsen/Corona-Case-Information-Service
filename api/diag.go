@@ -8,25 +8,6 @@ import (
 	"strings"
 )
 
-/*
-diag represents the diagnostic feedback structure.
-It is of the form:
-{
-	"mmediagroupapi": "<http status code for mmediagroupapi API>",
-   	"covidtrackerapi": "<http status code for covidtrackerapi API>",
-   	"registered": <number of registered webhooks>,
-   	"version": "v1",
-   	"uptime": <time in seconds from the last service restart>
-}
-*/
-type Diagnostic struct {
-	Mmediagroupapi      	string 							`json:"mmediagroupapi"`
-	Covidtrackerapi       	string  						`json:"covidtrackerapi"`
-	Register				int								`json:"registered"`
-	Version 				string 							`json:"version"`
-	Uptime 					string 							`json:"uptime"`
-}
-
 // Handles the diag /corona/v1/diag/ request
 func Diag(w http.ResponseWriter, r *http.Request) {
 
