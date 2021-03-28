@@ -156,7 +156,7 @@ Path: /corona/v1/notifications/
 
 The body contains 
  * the URL to be triggered upon event (the service that should be invoked)
- * the frequency with which the invocation occurs in seconds (timeout)
+ * the frequency with which the invocation occurs in seconds (timeout), minimum 60, values lower get changed to 60
  * the information of interest (`stringency` of policy or `confirmed` cases)
  * indication whether notifications should only be sent when information has changed ("ON_CHANGE") - for example, the stringency has changed since the last call *AND* the timeout is reached -, or be sent in any case whenever the specified timeout expires ("ON_TIMEOUT")
  * the country for which the trigger applies
@@ -172,8 +172,6 @@ Body (Example):
    "trigger": "ON_CHANGE"
 }
 ```
-
-**UPDATE: The trigger parameters are `ON_CHANGE` and `ON_TIMEOUT`, not `ON_UPDATE`. This has been fixed now.**
 
 ### - Response
 

@@ -12,6 +12,7 @@ import (
 	"main/function"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,7 @@ var Collection = "webhooks"
 var WebhookCount int
 // Map that stores the registered webhooks locally, used for running their functionality
 var Webhooks = make(map[string]WebhookData)
+const TIMEOUTMIN = 60
 
 // Main function that calls other functions
 func Notifications(w http.ResponseWriter, r *http.Request) {
@@ -84,21 +86,33 @@ func WebhookStart() {
 		fmt.Println(doc)
 		m := doc.Data()
 
-		webhookTempData.Country = fmt.Sprintf("%v", m["country"])
+		webhookTempData.Country = strings.Title(strings.ToLower(fmt.Sprintf("%v", m["country"])))
 		webhookTempData.Id = doc.Ref.ID
 		webhookTempData.Url = fmt.Sprintf("%v", m["url"])
 		webhookTempData.Information = fmt.Sprintf("%v", m["field"])
 		webhookTempData.Trigger = fmt.Sprintf("%v", m["trigger"])
 		webhookTempData.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", m["timeout"]))
 		if err != nil {
-			log.Fatalf("Failed converting time from firestore database")
+			log.Println("Failed converting time from firestore database, deleting the instance")
+			deleteWebhook(doc.Ref.ID)
+		} else {
+
+			// Min value
+			if webhookTempData.Timeout < TIMEOUTMIN {
+				webhookTempData.Timeout = TIMEOUTMIN
+			}
+
+			if !webhookDataValidation(webhookTempData){
+				log.Println("Invalid data retrieved, deleting the instance")
+				deleteWebhook(doc.Ref.ID)
+			} else {
+
+				// Add it to the map
+				Webhooks[doc.Ref.ID] = webhookTempData
+				// Run the goroutine for it
+				go webhookCheck(doc.Ref.ID)
+			}
 		}
-
-		// Add it to the map
-		Webhooks[doc.Ref.ID] = webhookTempData
-		// Run the goroutine for it
-		go webhookCheck(doc.Ref.ID)
-
 		counter++
 	}
 	WebhookCount = counter
@@ -117,6 +131,7 @@ func webhookCheck(webhookId string) {
 	var Code string
 
 	// Perform data integrity check here?
+
 	webhook, exists = Webhooks[webhookId]
 	// else exits the goroutine
 	if !exists {
@@ -129,15 +144,17 @@ func webhookCheck(webhookId string) {
 		// Retrieve country code
 		Code, err = CountryCodeWebhook(webhook.Country)
 		if !err {
+			deleteWebhook(webhook.Id)
 			fmt.Println("Error in retrieving country code for webhook with id: ",
-				webhook.Id, "Stopping the routine.")
+				webhook.Id, "Removing the webhook from storage.")
 			return
 		}
 		// Stringency start data request
 		StringencyData[0], err = StringencyWebhookWithoutScope(webhook.Country, Code)
 		if !err {
+			deleteWebhook(webhook.Id)
 			fmt.Println("Error in retrieving stringency data for webhook with id: ",
-				webhook.Id, "Stopping the routine.")
+				webhook.Id, "Removing the webhook from storage.")
 			return
 		}
 
@@ -146,7 +163,9 @@ func webhookCheck(webhookId string) {
 		// Confirmed start data request
 		ConfirmedData[0], err = CasesWebhook(webhook.Country)
 		if !err {
-			fmt.Println("Error in retrieving initial data for webhook with id: ", webhook.Id, "Stopping the routine.")
+			deleteWebhook(webhook.Id)
+			fmt.Println("Error in retrieving initial data for webhook with id: ", webhook.Id,
+				"Removing the webhook from storage.")
 			return
 		}
 
@@ -168,8 +187,9 @@ func webhookCheck(webhookId string) {
 			// Stringency data request
 			StringencyData[1], err = StringencyWebhookWithoutScope(webhook.Country, Code)
 			if !err {
+				deleteWebhook(webhook.Id)
 				fmt.Println("Error in retrieving stringency data for webhook with id: ",
-					webhook.Id, "Stopping the routine.")
+					webhook.Id, "Removing the webhook from storage.")
 				return
 			}
 			// Compare it
@@ -192,7 +212,9 @@ func webhookCheck(webhookId string) {
 			// Request the data
 			ConfirmedData[1], err = CasesWebhook(webhook.Country)
 			if !err {
-				fmt.Println("Error in retrieving data for webhook with id: ", webhook.Id, "Stopping the routine.")
+				deleteWebhook(webhook.Id)
+				fmt.Println("Error in retrieving data for webhook with id: ", webhook.Id,
+					"Removing the webhook from storage.")
 				return
 			}
 			// Compare it
@@ -220,8 +242,16 @@ func webhookCreate(w http.ResponseWriter, r *http.Request) {
 	webhook := WebhookData{}
 	err := json.NewDecoder(r.Body).Decode(&webhook)
 	if err != nil {
-		function.ErrorHandle(w, "Bad request, see manual for specification of post",
+		function.ErrorHandle(w, "Bad request, see readme for specification of post",
 			400, "Request")
+		return
+	}
+
+	// Validates the input, error if invalid content of fields
+	if !webhookDataValidation(webhook){
+		function.ErrorHandle(w, "Bad request, see readme for specification of post",
+			400, "Request")
+		return
 	}
 
 	id, _, err := Client.Collection("webhooks").Add(Ctx,
@@ -337,16 +367,28 @@ func webhookViewSingle(w http.ResponseWriter, name string) {
 
 // Deletes the specified webhook
 func webhookDelete(w http.ResponseWriter, name string) {
+	err := deleteWebhook(name)
+	if !err {
+		http.Error(w, "Deletion of " + name + " failed.", http.StatusInternalServerError)
+	}
+
+	http.Error(w, "Deletion of " + name + " successful.", http.StatusNoContent)
+}
+
+// Deletes the webhook from firestore and the local map
+// Returns a false or true depending on firestore deletion
+func deleteWebhook(name string) bool{
 	_, err := Client.Collection(Collection).Doc(name).Delete(Ctx)
 	if err != nil {
-		http.Error(w, "Deletion of " + name + " failed.", http.StatusInternalServerError)
+		return false
 	}
 
 	// Remove the map value to stop the go routine
 	delete(Webhooks, name)
-
+	// Decrement the webhook counter
 	WebhookCount--
-	http.Error(w, "Deletion of " + name + " successful.", http.StatusNoContent)
+
+	return true
 }
 
 // Serves webhook confirmed data
@@ -389,10 +431,13 @@ func webhookSendStringency(url string, data OutputStrData){
 
 	req, err := http.NewRequest(http.MethodPost, url,
 		bytes.NewReader(outData))
+
 	if err != nil {
 		log.Printf("%v", "Error during request creation.")
 		return
 	}
+	// Set the content type to json
+	req.Header.Set("Content-Type", "application/json")
 	client := http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
@@ -407,4 +452,24 @@ func webhookSendStringency(url string, data OutputStrData){
 
 	fmt.Println("Webhook invoked. Received status code " + strconv.Itoa(res.StatusCode) +
 		" and body: " + string(response))
+}
+
+// Validates the data of a webhook, returns false if the data is invalid
+// Checks if the trigger, information and country is valid
+func webhookDataValidation(data WebhookData) bool{
+	// Check trigger value
+	if data.Trigger != "ON_TIMEOUT" && data.Trigger != "ON_UPDATE"{
+		return false
+	}
+	// Check information value
+	if data.Information != "stringency" && data.Trigger != "confirmed"{
+		return false
+	}
+	// Check country value
+	_, err := CountryCodeWebhook(data.Country)
+	if !err {
+		return false
+	}
+
+	return true
 }

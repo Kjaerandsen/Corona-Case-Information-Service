@@ -38,7 +38,7 @@ func CasesPerCountry(w http.ResponseWriter, r *http.Request) {
 	}
 	countryName := parts[4]
 	// Capitalize the first letter of each word
-	countryName = strings.Title(countryName)
+	countryName = strings.Title(strings.ToLower(countryName))
 
 	// Scope from the url of the request "?limit=date_start-date_end"
 	var scope = r.FormValue("scope")
