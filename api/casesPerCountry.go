@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"main/function"
 	"net/http"
 	"strconv"
@@ -122,7 +123,7 @@ func casesWithoutScope(w http.ResponseWriter, r *http.Request, name string) {
 	// Set the output data with values from the api request
 	outputData.Recovered = data.All.Recovered
 	outputData.Country = data.All.Country
-	outputData.Continent = data.All.Country
+	outputData.Continent = data.All.Continent
 	outputData.Confirmed = data.All.Confirmed
 	// TODO: Fix this, probably doesn't display enough comma values
 	outputData.PopulationPercentage, err =
@@ -256,7 +257,7 @@ func casesWithScope(w http.ResponseWriter, r *http.Request, name string, scope s
 		return
 	}
 
-	// If the http statuscode retrieved from the api is not 200 / "OK"
+	// If the http status code retrieved from the api is not 200 / "OK"
 	if res.StatusCode != 200 {
 		function.ErrorHandle(w, "Error in sending request to external api", 404, "Request")
 		return
@@ -323,7 +324,6 @@ func casesWithScope(w http.ResponseWriter, r *http.Request, name string, scope s
 	// Add the data from the api call to outputData here
 	outputData.Country = data.All.Country
 	outputData.Continent = data.All.Continent
-	// TODO: Fix this, probably doesn't display enough comma values
 	outputData.PopulationPercentage, err =
 		strconv.ParseFloat(fmt.Sprintf("%.2f", float64(outputData.Confirmed) / float64(data.All.Population)), 64)
 	if err != nil {
@@ -348,4 +348,74 @@ func returnData(w http.ResponseWriter, data OutputData) {
 	if err != nil {
 		function.ErrorHandle(w, "Internal server error", 500, "Response")
 	}
+}
+
+// Handles the country request for webhooks
+func CasesWebhook(name string) (OutputData, bool){
+	var data InputDataWithoutScope
+	var outputData OutputData
+
+	// Perform the api call
+	url := fmt.Sprintf("https://covid-api.mmediagroup.fr/v1/cases?country=%s", name)
+
+	r, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		log.Println("Error in sending request to external api")
+		return OutputData{}, false
+	}
+
+	// Setting content type -> effect depends on the service provider
+	r.Header.Add("content-type", "application/json")
+	// Instantiate the client
+	client := &http.Client{}
+
+	// Issue request
+	res, err := client.Do(r)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return OutputData{}, false
+	}
+
+	// If the http statuscode retrieved from the api is not 200 / "OK"
+	if res.StatusCode != 200 {
+		log.Println("Error in sending request to external api")
+		return OutputData{}, false
+	}
+
+	// Read the data
+	output, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return OutputData{}, false
+	}
+
+	// JSON into struct
+	err = json.Unmarshal(output, &data)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return OutputData{}, false
+	}
+
+	if data.All.Country == "" {
+		log.Println("Country doesn't exist in the covid database")
+		return OutputData{}, false
+	}
+
+	//fmt.Println(data.All.Confirmed, data.All.Continent, data.All.Country, data.All.Population, data.All.Recovered)
+	// Set the output data with values from the api request
+	outputData.Recovered = data.All.Recovered
+	outputData.Country = data.All.Country
+	outputData.Continent = data.All.Continent
+	outputData.Confirmed = data.All.Confirmed
+	// TODO: Fix this, probably doesn't display enough comma values
+	outputData.PopulationPercentage, err =
+		strconv.ParseFloat(fmt.Sprintf("%.2f",float64(data.All.Confirmed) / float64(data.All.Population)),64)
+	if err != nil {
+		fmt.Println("Error in handling float for population percentage")
+		return OutputData{}, false
+	}
+	outputData.Scope = "total"
+
+	// Returns the output data to the webhook
+	return outputData, true
 }

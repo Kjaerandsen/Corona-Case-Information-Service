@@ -268,6 +268,30 @@ Path: <url specified in the corresponding webhook registration>
 
 Any invocation of the registered webhook has the format of the output corresponding to the `information` that has been registered. For example, if `stringency` was specified as information during webhook registration, the structure of the body would follow the policy endpoint output; conversely, if registering `confirmed` as information value for the webhook, the latest (no date ranges) information about confirmed Covid-19 cases for the given country are returned. 
 
+### Testing
+
+To test the webhook functionality you can use a program such as postman to send post, delete and get requests and you can use webhook.site to test the webhook responses.
+
+### Error handling
+
+When there is an error performing actions inside a webhook the webhook runner stops and is removed from the database and map.
+For http request errors in the other endpoints an apropriate error message is sent via http.
+
+### Setup
+
+Create a firestore database and retrieve your service-account credentials. Rename this json file to "service-account.json" and put it in the root directory of the program (with main.go).
+
+### Program structure
+
+The program is structured into two subfolders, api & function:
+* api contains api endpoint implementations
+* function contains functions used for data handling and such, for example for retrieving dates and returning http errors
+
+### Notes
+
+On startup the programs fills up a webhook map with the webhooks in the firestore database. This means that webhooks survive reboots.
+When a webhook's request returns an error the webhook runner is stopped and the webhook is removed from the database and map.
+
 ### Credits:
 
 The readme is based on the assignment info retrieved from 

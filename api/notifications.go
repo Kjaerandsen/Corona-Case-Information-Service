@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"cloud.google.com/go/firestore" // Firestore-specific support
 	"context"                       // State handling across API boundaries; part of native GoLang API
 	"encoding/json"
 	"fmt"
 	"google.golang.org/api/iterator"
+	"io/ioutil"
 	"log"
 	"main/function"
 	"net/http"
@@ -67,7 +69,7 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 // Sets the WebhookCount var, and runs the webhook function for the registered webhooks at start
 func WebhookStart() {
 	var counter int
-	var webhooktempData WebhookData
+	var webhookTempData WebhookData
 
 	// Retrieve the data from firestore
 	iter := Client.Collection(Collection).Documents(Ctx) // Loop through all entries in collection "webhooks"
@@ -82,25 +84,24 @@ func WebhookStart() {
 		fmt.Println(doc)
 		m := doc.Data()
 
-		webhooktempData.Country = fmt.Sprintf("%v", m["country"])
-		webhooktempData.Id = doc.Ref.ID
-		webhooktempData.Url = fmt.Sprintf("%v", m["url"])
-		webhooktempData.Information = fmt.Sprintf("%v", m["field"])
-		webhooktempData.Trigger = fmt.Sprintf("%v", m["trigger"])
-		webhooktempData.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", m["timeout"]))
+		webhookTempData.Country = fmt.Sprintf("%v", m["country"])
+		webhookTempData.Id = doc.Ref.ID
+		webhookTempData.Url = fmt.Sprintf("%v", m["url"])
+		webhookTempData.Information = fmt.Sprintf("%v", m["field"])
+		webhookTempData.Trigger = fmt.Sprintf("%v", m["trigger"])
+		webhookTempData.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", m["timeout"]))
 		if err != nil {
 			log.Fatalf("Failed converting time from firestore database")
 		}
 
 		// Add it to the map
-		Webhooks[doc.Ref.ID] = webhooktempData
+		Webhooks[doc.Ref.ID] = webhookTempData
 		// Run the goroutine for it
 		go webhookCheck(doc.Ref.ID)
 
 		counter++
 	}
 	WebhookCount = counter
-	fmt.Println(Webhooks)
 }
 
 // Runs the webhook functionality each timeout seconds while it exists in the local webhook map
@@ -108,22 +109,108 @@ func WebhookStart() {
 func webhookCheck(webhookId string) {
 	var exists = true
 	var webhook WebhookData
-	// Perform initial request to hold the data
-	for {
-		// Checks if the map still contains the webhook
-		webhook, exists = Webhooks[webhookId]
-		// else exits the goroutine
-		fmt.Println(webhook)
-		// BREAKS BY DEFAULT NOW
-		if exists {
-			break
+	// Data from the "stringency" information
+	var StringencyData [2]OutputStrData
+	// Data from the "confirmed" information
+	var ConfirmedData [2]OutputData
+	var err bool
+	var Code string
+
+	// Perform data integrity check here?
+	webhook, exists = Webhooks[webhookId]
+	// else exits the goroutine
+	if !exists {
+		return
+	}
+
+	// Initial data request, for comparison on first execution
+	if webhook.Information == "stringency" {
+
+		// Retrieve country code
+		Code, err = CountryCodeWebhook(webhook.Country)
+		if !err {
+			fmt.Println("Error in retrieving country code for webhook with id: ",
+				webhook.Id, "Stopping the routine.")
+			return
+		}
+		// Stringency start data request
+		StringencyData[0], err = StringencyWebhookWithoutScope(webhook.Country, Code)
+		if !err {
+			fmt.Println("Error in retrieving stringency data for webhook with id: ",
+				webhook.Id, "Stopping the routine.")
+			return
 		}
 
-		fmt.Println(webhook)
+	} else {
 
-		// Does the functionality
+		// Confirmed start data request
+		ConfirmedData[0], err = CasesWebhook(webhook.Country)
+		if !err {
+			fmt.Println("Error in retrieving initial data for webhook with id: ", webhook.Id, "Stopping the routine.")
+			return
+		}
+
+	}
+
+	// Perform initial request to hold the data
+	fmt.Println("Webhook runner started for webhook with id: ", webhookId)
+	for {
+		// Checks if the map still contains the webhook
+		_, exists = Webhooks[webhookId]
+		// else exits the goroutine
+		if !exists {
+			break
+		}
 		// Sleep for the timeout amount of seconds
 		time.Sleep(time.Duration(webhook.Timeout) * time.Second)
+
+		if webhook.Information == "stringency" {
+			// Stringency data request
+			StringencyData[1], err = StringencyWebhookWithoutScope(webhook.Country, Code)
+			if !err {
+				fmt.Println("Error in retrieving stringency data for webhook with id: ",
+					webhook.Id, "Stopping the routine.")
+				return
+			}
+			// Compare it
+			if StringencyData[0].Stringency != StringencyData[1].Stringency{
+				// If the webhook is to trigger on timeout send the data
+				if webhook.Trigger == "ON_TIMEOUT" {
+					// Run the output
+					webhookSendStringency(webhook.Url, StringencyData[1])
+				}
+				// Update the data
+				StringencyData[0] = StringencyData[1]
+			} else {
+				// Update the data
+				StringencyData[0] = StringencyData[1]
+				// Run the output
+				webhookSendStringency(webhook.Url, StringencyData[0])
+			}
+			// Handle output if changed or "ON_UPDATE"
+		} else /* Cases */{
+			// Request the data
+			ConfirmedData[1], err = CasesWebhook(webhook.Country)
+			if !err {
+				fmt.Println("Error in retrieving data for webhook with id: ", webhook.Id, "Stopping the routine.")
+				return
+			}
+			// Compare it
+			if ConfirmedData[0].Confirmed != ConfirmedData[1].Confirmed{
+				// If the webhook is to trigger on timeout send the data
+				if webhook.Trigger == "ON_TIMEOUT" {
+					// Run the output
+					webhookSendConfirmed(webhook.Url, ConfirmedData[1])
+				}
+				// Update the data
+				ConfirmedData[0] = ConfirmedData[1]
+			} else {
+				// Update the data
+				ConfirmedData[0] = ConfirmedData[1]
+				// Run the output
+				webhookSendConfirmed(webhook.Url, ConfirmedData[0])
+			}
+		}
 	}
 }
 
@@ -260,4 +347,64 @@ func webhookDelete(w http.ResponseWriter, name string) {
 
 	WebhookCount--
 	http.Error(w, "Deletion of " + name + " successful.", http.StatusNoContent)
+}
+
+// Serves webhook confirmed data
+func webhookSendConfirmed(url string, data OutputData){
+
+	outData, err := json.Marshal(data)
+	if err != nil{
+		log.Printf("%v", "Error during json marshaling.")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url,
+		bytes.NewReader(outData))
+	if err != nil {
+		log.Printf("%v", "Error during request creation.")
+		return
+	}
+	client := http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println("Error in HTTP request: " + err.Error())
+		return
+	}
+	response, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Something is wrong with invocation response: " + err.Error())
+		return
+	}
+
+	fmt.Println("Webhook invoked. Received status code " + strconv.Itoa(res.StatusCode) +
+		" and body: " + string(response))
+}
+
+// Send webhook Stringency data
+func webhookSendStringency(url string, data OutputStrData){
+
+	outData, err := json.Marshal(data)
+	if err != nil{
+		log.Printf("%v", "Error during json marshaling.")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url,
+		bytes.NewReader(outData))
+	if err != nil {
+		log.Printf("%v", "Error during request creation.")
+		return
+	}
+	client := http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println("Error in HTTP request: " + err.Error())
+		return
+	}
+	response, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Something is wrong with invocation response: " + err.Error())
+		return
+	}
+
+	fmt.Println("Webhook invoked. Received status code " + strconv.Itoa(res.StatusCode) +
+		" and body: " + string(response))
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"main/function"
 	"net/http"
 	"strconv"
@@ -276,8 +277,6 @@ func stringencyWithScope(w http.ResponseWriter, r *http.Request, name string, sc
 
 // Loops through the dates and checks for valid data, returns valid data if found, else empty data and a false bool
 func stringencyDataRequest(w http.ResponseWriter, r *http.Request, dates [3]string, alpha string) (StringencyData, bool) {
-	var data StringencyData
-
 	for i:=0; i<3; i++ {
 		data, err := stringencyRequest(w, r, dates[i], alpha)
 
@@ -287,7 +286,7 @@ func stringencyDataRequest(w http.ResponseWriter, r *http.Request, dates [3]stri
 			return data, true
 		}
 	}
-	return data, false
+	return StringencyData{}, false
 }
 
 // Simply returns the output data struct it receives as json to the user
@@ -301,4 +300,154 @@ func returnStringencyData(w http.ResponseWriter, data OutputStrData) {
 	if err != nil {
 		function.ErrorHandle(w, "Internal server error", 500, "Response")
 	}
+}
+
+// Webhook version
+
+// Get the country code and name from the country name using the restcountries api
+func CountryCodeWebhook(name string) (string, bool){
+	/*
+		Url request code based on RESTclient found at
+		"https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/blob/master/RESTclient/cmd/main.go"
+	*/
+	var data CountryInfo
+	url := fmt.Sprintf("https://restcountries.eu/rest/v2/name/%s?fields=name;alpha3Code", name)
+
+	r, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		log.Println("Error in sending request to external api")
+		return "", false
+	}
+
+	// Setting content type -> effect depends on the service provider
+	r.Header.Add("content-type", "application/json")
+	// Instantiate the client
+	client := &http.Client{}
+
+	// Issue request
+	res, err := client.Do(r)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return "", false
+	}
+
+	// If the http statuscode retrieved from restcountries is not 200 / "OK"
+	if res.StatusCode != 200 {
+		log.Println("Error in sending request to external api, country name probably wrong")
+		return "", false
+	}
+
+	// Reading the data
+	output, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return "", false
+	}
+
+	// JSON into struct
+	err = json.Unmarshal(output, &data)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return "", false
+	}
+
+	if data[0].Alpha3Code == "" {
+		log.Println("Received no data from external api")
+		return "", false
+	}
+
+	// Return the data and true if the request was successfull
+	return data[0].Alpha3Code, true
+}
+
+// Handles the stringency cases without a scope
+func StringencyWebhookWithoutScope(name string, alpha string) (OutputStrData, bool){
+	var output OutputStrData
+	var dates = function.DateToday()
+	var data StringencyData
+
+	// Perform the api requests
+	data, err := stringencyWebhookDataRequest(dates, alpha)
+	if !err {
+		log.Println("Found no data in the stringency api for seven, 10 and 13 days ago")
+		return OutputStrData{}, false
+	}
+
+	output.Stringency = data.Data.StringencyActual
+	if output.Stringency == 0 {
+		output.Stringency = data.Data.Stringency
+	}
+	output.Scope= "total"
+	output.Trend = 0
+	output.Country = name
+
+	// Returns the output data to the user
+	return output, true
+}
+
+// Loops through the dates and checks for valid data, returns valid data if found, else empty data and a false bool
+func stringencyWebhookDataRequest(dates [3]string, alpha string) (StringencyData, bool) {
+	for i:=0; i<3; i++ {
+		data, err := stringencyWebhookRequest(dates[i], alpha)
+
+		// If data.Data.Message is empty that means that the datapoint exists for the date
+		// If the datapoint exists and there is no error return the data and go on
+		if data.Data.Message == "" && err {
+			return data, true
+		}
+	}
+	return StringencyData{}, false
+}
+
+// Function that performs the main request, returns the input data as a struct and a bool if there is an error
+func stringencyWebhookRequest(date string, alpha string) (StringencyData, bool) {
+	var data StringencyData // The data received from the api, and returned
+
+	// Perform the api call
+	/*
+		Url request code based on RESTclient found at
+		"https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/blob/master/RESTclient/cmd/main.go"
+	*/
+	url := fmt.Sprintf("https://covidtrackerapi.bsg.ox.ac.uk/api/v2/stringency/actions/%s/%s", alpha, date)
+
+	r, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		log.Println("Error in sending request to external api")
+		return data, false
+	}
+
+	// Setting content type -> effect depends on the service provider
+	r.Header.Add("content-type", "application/json")
+	// Instantiate the client
+	client := &http.Client{}
+
+	// Issue request
+	res, err := client.Do(r)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return data, false
+	}
+
+	// If the http statuscode retrieved from api is not 200 / "OK"
+	if res.StatusCode != 200 {
+		log.Println("Error in sending request to external api, country name probably wrong")
+		return data, false
+	}
+
+	// Reading the data
+	output, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return data, false
+	}
+
+	// JSON into struct
+	err = json.Unmarshal(output, &data)
+	if err != nil {
+		log.Println("Error in parsing json from external api")
+		return data, false
+	}
+
+	// If no errors return the data received and a true bool as in executed successfully
+	return data, true
 }
