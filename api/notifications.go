@@ -18,7 +18,10 @@ var Ctx context.Context
 var Client *firestore.Client
 // Collection name in Firestore
 var Collection = "webhooks"
+// Counts the amount of webhooks registered
 var WebhookCount int
+// Map that stores the registered webhooks locally, used for running their functionality
+var Webhooks = make(map[string]WebhookData)
 
 // Main function that calls other functions
 func Notifications(w http.ResponseWriter, r *http.Request) {
@@ -64,33 +67,64 @@ func Notifications(w http.ResponseWriter, r *http.Request) {
 // Sets the WebhookCount var, and runs the webhook function for the registered webhooks at start
 func WebhookStart() {
 	var counter int
+	var webhooktempData WebhookData
 
 	// Retrieve the data from firestore
 	iter := Client.Collection(Collection).Documents(Ctx) // Loop through all entries in collection "webhooks"
 	for {
-		_, err := iter.Next()
+		doc, err := iter.Next()
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
 			log.Fatalf("Failed to iterate: %v", err)
 		}
+		fmt.Println(doc)
+		m := doc.Data()
+
+		webhooktempData.Country = fmt.Sprintf("%v", m["country"])
+		webhooktempData.Id = doc.Ref.ID
+		webhooktempData.Url = fmt.Sprintf("%v", m["url"])
+		webhooktempData.Information = fmt.Sprintf("%v", m["field"])
+		webhooktempData.Trigger = fmt.Sprintf("%v", m["trigger"])
+		webhooktempData.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", m["timeout"]))
+		if err != nil {
+			log.Fatalf("Failed converting time from firestore database")
+		}
+
+		// Add it to the map
+		Webhooks[doc.Ref.ID] = webhooktempData
+		// Run the goroutine for it
+		go webhookCheck(doc.Ref.ID)
+
 		counter++
 	}
 	WebhookCount = counter
+	fmt.Println(Webhooks)
 }
 
-// Checks a webhooks datapoint and returns a value if changed / on timeout
-func webhookCheck(timeout int, trigger string, information string, url string) {
+// Runs the webhook functionality each timeout seconds while it exists in the local webhook map
+// Ran as a go routine from webhookCreate() and WebhookStart()
+func webhookCheck(webhookId string) {
+	var exists = true
+	var webhook WebhookData
 	// Perform initial request to hold the data
+	for {
+		// Checks if the map still contains the webhook
+		webhook, exists = Webhooks[webhookId]
+		// else exits the goroutine
+		fmt.Println(webhook)
+		// BREAKS BY DEFAULT NOW
+		if exists {
+			break
+		}
 
-	// While loop, check each update if the webhook still exists
-	// else exit
+		fmt.Println(webhook)
 
-	// Sleep for the timeout amount of seconds
-	time.Sleep(time.Duration(timeout) * time.Second)
-
-	// Perform the api call, if the value is changed return it
+		// Does the functionality
+		// Sleep for the timeout amount of seconds
+		time.Sleep(time.Duration(webhook.Timeout) * time.Second)
+	}
 }
 
 // Creates a webhook
@@ -116,6 +150,11 @@ func webhookCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error when adding message ", http.StatusBadRequest)
 		return
 	}
+
+	// Add the webhook to the webhook map for running
+	Webhooks[id.ID] = webhook
+	// Run the webhook runner
+	go webhookCheck(id.ID)
 
 	WebhookCount ++
 	fmt.Println("Webhook with id: " + id.ID + " has been registered.")
@@ -215,6 +254,10 @@ func webhookDelete(w http.ResponseWriter, name string) {
 	if err != nil {
 		http.Error(w, "Deletion of " + name + " failed.", http.StatusInternalServerError)
 	}
+
+	// Remove the map value to stop the go routine
+	delete(Webhooks, name)
+
 	WebhookCount--
 	http.Error(w, "Deletion of " + name + " successful.", http.StatusNoContent)
 }
