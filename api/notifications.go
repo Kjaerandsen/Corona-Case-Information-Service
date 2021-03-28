@@ -89,7 +89,7 @@ func WebhookStart() {
 		webhookTempData.Country = strings.Title(strings.ToLower(fmt.Sprintf("%v", m["country"])))
 		webhookTempData.Id = doc.Ref.ID
 		webhookTempData.Url = fmt.Sprintf("%v", m["url"])
-		webhookTempData.Information = fmt.Sprintf("%v", m["field"])
+		webhookTempData.Information = fmt.Sprintf("%v", m["information"])
 		webhookTempData.Trigger = fmt.Sprintf("%v", m["trigger"])
 		webhookTempData.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", m["timeout"]))
 		if err != nil {
@@ -111,9 +111,9 @@ func WebhookStart() {
 				Webhooks[doc.Ref.ID] = webhookTempData
 				// Run the goroutine for it
 				go webhookCheck(doc.Ref.ID)
+				counter++
 			}
 		}
-		counter++
 	}
 	WebhookCount = counter
 }
@@ -207,7 +207,7 @@ func webhookCheck(webhookId string) {
 				// Run the output
 				webhookSendStringency(webhook.Url, StringencyData[0])
 			}
-			// Handle output if changed or "ON_UPDATE"
+			// Handle output if changed or "ON_CHANGE"
 		} else /* Cases */{
 			// Request the data
 			ConfirmedData[1], err = CasesWebhook(webhook.Country)
@@ -258,7 +258,7 @@ func webhookCreate(w http.ResponseWriter, r *http.Request) {
 		map[string]interface{}{
 		"url": webhook.Url,
 		"timeout": webhook.Timeout,
-		"field": webhook.Information,
+		"information": webhook.Information,
 		"country": webhook.Country,
 		"trigger": webhook.Trigger,
 		})
@@ -280,12 +280,9 @@ func webhookCreate(w http.ResponseWriter, r *http.Request) {
 
 // Views all webhooks
 func webhookViewAll(w http.ResponseWriter) {
-	var webhooks []WebhookData
 	var outputString string
 
 	w.Header().Set("Content-Type", "application/json")
-
-	fmt.Println(Client.Collection(Collection).ID)
 
 	// Retrieve the data from firestore
 	var counter int
@@ -310,7 +307,7 @@ func webhookViewAll(w http.ResponseWriter) {
 		outputString = fmt.Sprintf(`{"id":"%v","url":"%s","timeout":%v,`, doc.Ref.ID, m["url"], m["timeout"])
 		outputString = fmt.Sprintf(`%s"information":"%s","country":"%s","trigger":"%s"},`,
 			outputString,
-			m["field"],
+			m["information"],
 			m["country"],
 			m["trigger"])
 
@@ -326,9 +323,6 @@ func webhookViewAll(w http.ResponseWriter) {
 	if err != nil {
 		http.Error(w, "Error while writing response body.", http.StatusInternalServerError)
 	}
-
-	// Return the struct array
-	fmt.Println(webhooks)
 }
 
 // Views the specified webhook if it exists
@@ -344,7 +338,7 @@ func webhookViewSingle(w http.ResponseWriter, name string) {
 	outputData := data.Data()
 
 	outputDataStruct.Country = fmt.Sprintf("%s", outputData["country"])
-	outputDataStruct.Information = fmt.Sprintf("%s", outputData["field"])
+	outputDataStruct.Information = fmt.Sprintf("%s", outputData["information"])
 	outputDataStruct.Timeout, err = strconv.Atoi(fmt.Sprintf("%v", outputData["timeout"]))
 	if err != nil {
 		function.ErrorHandle(w, "Internal server error", 500, "Parsing")
@@ -458,11 +452,11 @@ func webhookSendStringency(url string, data OutputStrData){
 // Checks if the trigger, information and country is valid
 func webhookDataValidation(data WebhookData) bool{
 	// Check trigger value
-	if data.Trigger != "ON_TIMEOUT" && data.Trigger != "ON_UPDATE"{
+	if data.Trigger != "ON_TIMEOUT" && data.Trigger != "ON_CHANGE"{
 		return false
 	}
 	// Check information value
-	if data.Information != "stringency" && data.Trigger != "confirmed"{
+	if data.Information != "stringency" && data.Information != "confirmed"{
 		return false
 	}
 	// Check country value

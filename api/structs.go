@@ -85,6 +85,7 @@ It is of the form:
 type Diagnostic struct {
 	Mmediagroupapi      	string 		`json:"mmediagroupapi"`
 	Covidtrackerapi       	string  	`json:"covidtrackerapi"`
+	Restcountriesapi		string		`json:"restcountriesapi"`
 	Register				int			`json:"registered"`
 	Version 				string 		`json:"version"`
 	Uptime 					int 		`json:"uptime"`

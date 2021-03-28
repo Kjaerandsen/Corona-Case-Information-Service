@@ -33,6 +33,7 @@ func Diag(w http.ResponseWriter, r *http.Request) {
 	diagnosticData := &Diagnostic{
 		Mmediagroupapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covid-api.mmediagroup.fr/v1/cases")),
 		Covidtrackerapi: fmt.Sprintf("%d", function.GetHttpStatus("https://covidtrackerapi.bsg.ox.ac.uk/api/v2/stringency/date-range/2021-03-02/2021-03-19")),
+		Restcountriesapi: fmt.Sprintf("%d", function.GetHttpStatus("https://restcountries.eu/rest/v2/name/norway")),
 		Register: WebhookCount,
 		Version: "v1",
 		Uptime: 0,

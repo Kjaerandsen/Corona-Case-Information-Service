@@ -8,6 +8,7 @@ import (
 	"main/function"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // corona/v1/stringency endpoint
@@ -77,9 +78,6 @@ func PolicyStringency(w http.ResponseWriter, r *http.Request) {
 // Get the country code and name from the country name using the restcountries api
 func countryCode(w http.ResponseWriter, r *http.Request, name string) (CountryInfo, bool){
 	// Perform the request to the api
-
-	fmt.Println(name)
-
 	/*
 		Url request code based on RESTclient found at
 		"https://git.gvk.idi.ntnu.no/course/prog2005/prog2005-2021/-/blob/master/RESTclient/cmd/main.go"
@@ -139,7 +137,6 @@ func countryCode(w http.ResponseWriter, r *http.Request, name string) (CountryIn
 // Function that performs the main request, returns the input data as a struct and a bool if there is an error
 func stringencyRequest(w http.ResponseWriter, r *http.Request, date string, alpha string) (StringencyData, bool) {
 	var data StringencyData // The data received from the api, and returned
-
 	// Perform the api call
 	/*
 		Url request code based on RESTclient found at
@@ -268,7 +265,7 @@ func stringencyWithScope(w http.ResponseWriter, r *http.Request, name string, sc
 		return
 	}
 
-	output.Scope= scope
+	output.Scope = scope
 	output.Country = name
 
 	// Returns the output data to the user
@@ -379,7 +376,7 @@ func StringencyWebhookWithoutScope(name string, alpha string) (OutputStrData, bo
 	}
 	output.Scope= "total"
 	output.Trend = 0
-	output.Country = name
+	output.Country = strings.Title(strings.ToLower(name))
 
 	// Returns the output data to the user
 	return output, true

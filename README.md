@@ -130,9 +130,9 @@ Body:
 
 ```
 {
-   "mmediagroupapi": "<http status code for mmediagroupapi API>",
-   "covidtrackerapi": "<http status code for covidtrackerapi API>",
-   ...
+   "mmediagroupapi": "<http status code for the mmediagroupapi API>",
+   "covidtrackerapi": "<http status code for the covidtrackerapi API>",
+   "restcountriesapi": "<http status code for the restcountries api>"
    "registered": <number of registered webhooks>,
    "version": "v1",
    "uptime": <time in seconds from the last service restart>
@@ -167,7 +167,7 @@ Body (Example):
 {
    "url": "https://localhost:8080/client/",
    "timeout": 3600,
-   "field": "stringency",
+   "information": "stringency",
    "country": "France",
    "trigger": "ON_CHANGE"
 }
@@ -223,7 +223,7 @@ Body (Example):
    "id": "OIdksUDwveiwe",
    "url": "http://localhost:8080/client/",
    "timeout": 3600,
-   "field": "stringency",
+   "information": "stringency",
    "country": "France",
    "trigger": "ON_CHANGE"
 }
